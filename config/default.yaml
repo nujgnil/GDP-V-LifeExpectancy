@@ -1,0 +1,23 @@
+data:
+  # full absolute path to your raw temperature anomaly CSV
+  raw_path: "C:/Users/Ling Jun/Desktop/PSB/Masters/DHV/Assignment/CW3/data/raw/temperature-anomaly.csv"
+
+  # processed output dataset (this file will be created by the pipeline)
+  processed_path: "data/processed/temperature_anomaly_processed.parquet"
+
+preprocess:
+  year_min: 1900     # adjust based on dataset range
+  keep_regions_only: true  # we may remove aggregated world if necessary
+
+analysis:
+  latest_year_strategy: "max_available"
+  top_n: 10   # if you have multiple regions
+
+outputs:
+  figures_dir: "reports/figures"
+  tables_dir: "reports/tables"
+
+style:
+  font_size: 14
+  dpi: 200
+  figure_size: [10, 5]
