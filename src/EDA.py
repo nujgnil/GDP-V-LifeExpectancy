@@ -51,7 +51,6 @@ def distplots(df):
     plt.savefig(OUTPUT_DIR / "dist_le0.png")
     plt.close()
 
-
 def scatterplots(df):
     plt.figure(figsize=(8, 6))
     sns.scatterplot(data=df, x="GDP_pc", y="LE_0", alpha=0.4)
@@ -60,8 +59,6 @@ def scatterplots(df):
     plt.ylabel("Life Expectancy at Birth")
     plt.tight_layout()
     plt.show()
-
-
 
 def timeseries_examples(df):
     sample_countries = ["United States", "China", "India", "Germany"]
