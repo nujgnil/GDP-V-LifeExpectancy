@@ -51,7 +51,7 @@ def create_income_groups(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
 def plot_global_trends(df: pd.DataFrame) -> None:
     """
     Global average trends over time for LE_0 and GDP_pc.
-    Saves two figures.
+    Saves two figures, each with annotations.
     """
     grouped = (
         df.groupby("Year")[["LE_0", "GDP_pc"]]
@@ -60,62 +60,146 @@ def plot_global_trends(df: pd.DataFrame) -> None:
         .sort_values("Year")
     )
 
-    # Life Expectancy trend
+    # ---------- Life Expectancy trend ----------
     plt.figure(figsize=(10, 5))
     plt.plot(grouped["Year"], grouped["LE_0"])
     plt.xlabel("Year")
     plt.ylabel("Life Expectancy at Birth (years)")
     plt.title("Global Average Life Expectancy at Birth Over Time")
+
+    # annotate early and late points
+    start = grouped.iloc[0]
+    end = grouped.iloc[-1]
+
+    plt.annotate(
+        f"{int(start['Year'])}: {start['LE_0']:.1f} years",
+        xy=(start["Year"], start["LE_0"]),
+        xytext=(start["Year"] + 15, start["LE_0"] - 5),
+        arrowprops=dict(arrowstyle="->", linewidth=1),
+    )
+
+    plt.annotate(
+        f"{int(end['Year'])}: {end['LE_0']:.1f} years",
+        xy=(end["Year"], end["LE_0"]),
+        xytext=(end["Year"] - 60, end["LE_0"] - 10),
+        arrowprops=dict(arrowstyle="->", linewidth=1),
+    )
+
     plt.tight_layout()
     plt.savefig(OUTPUT_DIR / "trend_global_LE0.png", dpi=300)
     plt.close()
 
-    # GDP per capita trend
+    # ---------- GDP per capita trend ----------
     plt.figure(figsize=(10, 5))
     plt.plot(grouped["Year"], grouped["GDP_pc"])
     plt.xlabel("Year")
     plt.ylabel("GDP per Capita (USD)")
     plt.title("Global Average GDP per Capita Over Time")
+
+    start_g = grouped.iloc[0]
+    end_g = grouped.iloc[-1]
+
+    plt.annotate(
+        f"{int(start_g['Year'])}: ${start_g['GDP_pc']:.0f}",
+        xy=(start_g["Year"], start_g["GDP_pc"]),
+        xytext=(start_g["Year"] + 15, start_g["GDP_pc"] + 1000),
+        arrowprops=dict(arrowstyle="->", linewidth=1),
+    )
+
+    plt.annotate(
+        f"{int(end_g['Year'])}: ${end_g['GDP_pc']:.0f}",
+        xy=(end_g["Year"], end_g["GDP_pc"]),
+        xytext=(end_g["Year"] - 60, end_g["GDP_pc"] - 2000),
+        arrowprops=dict(arrowstyle="->", linewidth=1),
+    )
+
     plt.tight_layout()
     plt.savefig(OUTPUT_DIR / "trend_global_GDPpc.png", dpi=300)
     plt.close()
 
 
+
 def plot_scatter_latest_year(df: pd.DataFrame) -> None:
     """
     Scatter: GDP per capita vs Life Expectancy (latest year),
-    and log(GDP) vs Life Expectancy.
+    with a best-fit curve based on LE_0 ~ log(GDP_pc),
+    and a log(GDP) version with a straight best-fit line.
+    Includes annotations to highlight key regions.
     """
     latest_year = df["Year"].max()
     snap = df[df["Year"] == latest_year].dropna(subset=["GDP_pc", "LE_0"]).copy()
+    snap = snap[snap["GDP_pc"] > 0]  # log requires positive values
 
-    # plain GDP vs LE
+    x_gdp = snap["GDP_pc"].values
+    y_le = snap["LE_0"].values
+    log_x = np.log(x_gdp)
+
+    # fit in log space: LE_0 = intercept + slope * log(GDP)
+    slope, intercept = np.polyfit(log_x, y_le, 1)
+
+    # ---------- 1) Raw GDP axis with curved log fit ----------
     plt.figure(figsize=(8, 6))
-    plt.scatter(snap["GDP_pc"], snap["LE_0"], alpha=0.5)
+    plt.scatter(x_gdp, y_le, alpha=0.5, label="Country (latest year)")
+
+    x_line = np.linspace(x_gdp.min(), x_gdp.max(), 200)
+    y_line = intercept + slope * np.log(x_line)
+    plt.plot(x_line, y_line, color="red", linewidth=2,
+             label="Best fit: LE₀ ~ log(GDP per capita)")
+
+    # annotate typical low-income / high-income regions
+    low_x = np.percentile(x_gdp, 10)
+    low_y = np.percentile(y_le, 10)
+    plt.annotate(
+        "Low income,\nshorter lives",
+        xy=(low_x, low_y),
+        xytext=(low_x * 2, low_y - 5),
+        arrowprops=dict(arrowstyle="->", linewidth=1),
+    )
+
+    high_x = np.percentile(x_gdp, 90)
+    high_y = np.percentile(y_le, 90)
+    plt.annotate(
+        "High income,\nlonger lives",
+        xy=(high_x, high_y),
+        xytext=(high_x * 0.6, high_y + 3),
+        arrowprops=dict(arrowstyle="->", linewidth=1),
+    )
+
     plt.xlabel("GDP per Capita (USD)")
     plt.ylabel("Life Expectancy at Birth (years)")
     plt.title(f"GDP per Capita vs Life Expectancy at Birth ({latest_year})")
+    plt.legend()
     plt.tight_layout()
     plt.savefig(OUTPUT_DIR / f"scatter_GDPpc_LE0_{latest_year}.png", dpi=300)
     plt.close()
 
-    # log GDP vs LE
-    snap = snap[snap["GDP_pc"] > 0].copy()
-    snap["log_GDP_pc"] = np.log(snap["GDP_pc"])
-
+    # ---------- 2) Log(GDP) axis with straight line ----------
     plt.figure(figsize=(8, 6))
-    plt.scatter(snap["log_GDP_pc"], snap["LE_0"], alpha=0.5)
+    plt.scatter(log_x, y_le, alpha=0.5, label="Country (latest year)")
+
+    log_x_line = np.linspace(log_x.min(), log_x.max(), 200)
+    y_line_log = intercept + slope * log_x_line
+    plt.plot(log_x_line, y_line_log, color="red", linewidth=2,
+             label="Best-fit line")
+
+    # annotate diminishing returns area
+    mid_log = np.median(log_x)
+    mid_y = intercept + slope * mid_log
+    plt.annotate(
+        "Relationship becomes\nflatter at high incomes",
+        xy=(log_x.max(), y_line_log[-1]),
+        xytext=(mid_log, mid_y + 5),
+        arrowprops=dict(arrowstyle="->", linewidth=1),
+    )
+
     plt.xlabel("log(GDP per Capita)")
-    plt.ylabel("Life Expectancy at Birth (years)")
-    plt.title(f"log(GDP per Capita) vs Life Expectancy at Birth ({latest_year})")
-    plt.tight_layout()
-    plt.savefig(OUTPUT_DIR / f"scatter_logGDPpc_LE0_{latest_year}.png", dpi=300)
-    plt.close()
+    plt
 
 
 def plot_income_group_boxplot(df: pd.DataFrame) -> None:
     """
-    Boxplot of Life Expectancy by income group (latest year).
+    Boxplot of Life Expectancy by income group (latest year),
+    with median values annotated for each group.
     """
     df, latest_year = create_income_groups(df)
     snap = df[df["Year"] == latest_year].dropna(subset=["LE_0", "Income_group"])
@@ -124,39 +208,66 @@ def plot_income_group_boxplot(df: pd.DataFrame) -> None:
     data = [snap[snap["Income_group"] == g]["LE_0"] for g in order]
 
     plt.figure(figsize=(8, 6))
-    plt.boxplot(data, labels=order, showfliers=False)
+    box = plt.boxplot(data, labels=order, showfliers=False)
     plt.xlabel("Income Group")
     plt.ylabel("Life Expectancy at Birth (years)")
     plt.title(f"Life Expectancy by Income Group ({latest_year})")
+
+    # compute and annotate medians for each group
+    medians = [np.median(d) for d in data]
+
+    for i, (group, median_val) in enumerate(zip(order, medians), start=1):
+        plt.annotate(
+            f"Median ≈ {median_val:.1f}",
+            xy=(i, median_val),
+            xytext=(i, median_val + 3),  # adjust +3 if labels overlap
+            ha="center",
+            arrowprops=dict(arrowstyle="->", linewidth=1),
+        )
+
     plt.tight_layout()
     plt.savefig(OUTPUT_DIR / f"boxplot_LE0_income_groups_{latest_year}.png", dpi=300)
     plt.close()
 
 
+
+
 def plot_country_trajectories_2d(df: pd.DataFrame) -> None:
-    """
-    2D trajectories for selected countries: Year vs LE_0 and Year vs GDP_pc (optional).
-    """
     countries = ["United States", "China", "India", "Germany", "Brazil", "South Africa"]
     df_sel = df[df["Entity"].isin(countries)].copy()
 
-    for var, label, fname in [
-        ("GDP_pc", "GDP per Capita (USD)", "ts_GDPpc_selected_countries.png"),
-        ("LE_0", "Life Expectancy at Birth (years)", "ts_LE0_selected_countries.png"),
-    ]:
-        plt.figure(figsize=(10, 6))
-        for c in countries:
-            sub = df_sel[df_sel["Entity"] == c].sort_values("Year")
-            if sub.empty:
-                continue
-            plt.plot(sub["Year"], sub[var], label=c)
-        plt.xlabel("Year")
-        plt.ylabel(label)
-        plt.title(f"{label} Over Time — Selected Countries")
-        plt.legend(fontsize=8)
-        plt.tight_layout()
-        plt.savefig(OUTPUT_DIR / fname, dpi=300)
-        plt.close()
+    plt.figure(figsize=(10, 6))
+    for c in countries:
+        sub = df_sel[df_sel["Entity"] == c].sort_values("Year")
+        if sub.empty:
+            continue
+        plt.plot(sub["Year"], sub["LE_0"], label=c)
+
+        # annotate start and end for China and India as examples
+        if c in ["China", "India"]:
+            start = sub.iloc[0]
+            end = sub.iloc[-1]
+            plt.annotate(
+                f"{c} ({int(start['Year'])})",
+                xy=(start["Year"], start["LE_0"]),
+                xytext=(start["Year"] - 10, start["LE_0"] - 5),
+                arrowprops=dict(arrowstyle="->", linewidth=1),
+            )
+            plt.annotate(
+                f"{c} ({int(end['Year'])})",
+                xy=(end["Year"], end["LE_0"]),
+                xytext=(end["Year"] - 20, end["LE_0"] + 3),
+                arrowprops=dict(arrowstyle="->", linewidth=1),
+            )
+
+    plt.xlabel("Year")
+    plt.ylabel("Life Expectancy at Birth (years)")
+    plt.title("Life Expectancy Over Time — Selected Countries")
+    plt.legend(fontsize=8)
+    plt.tight_layout()
+    plt.savefig(OUTPUT_DIR / "ts_LE0_selected_countries.png", dpi=300)
+    plt.close()
+
 
 
 # ---------- 3D PLOTS ----------
