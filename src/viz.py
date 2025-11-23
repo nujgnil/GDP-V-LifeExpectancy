@@ -2,8 +2,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 (needed for 3D)
+from mpl_toolkits.mplot3d import Axes3D  
 from matplotlib.patches import Ellipse
+from matplotlib.offsetbox import DraggableAnnotation
 
 # ---------- PATHS ----------
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -154,7 +155,7 @@ def plot_global_trends(df: pd.DataFrame) -> None:
     fig.savefig(OUTPUT_DIR / "trend_global_LE0.png", dpi=300)
     plt.close(fig)
 
-    # ----------------------------------------------------------------------
+        # ----------------------------------------------------------------------
     # GDP PER CAPITA TREND
     # ----------------------------------------------------------------------
     fig, ax = plt.subplots(figsize=(10, 5))
@@ -195,8 +196,8 @@ def plot_global_trends(df: pd.DataFrame) -> None:
     slow_row = grouped.iloc[(grouped["Year"] - year_slow).abs().argmin()]
     fast_row = grouped.iloc[(grouped["Year"] - year_fast).abs().argmin()]
 
-        # ---- annotation bubbles WITHOUT arrows ----
-    slow_label_x = slow_row["Year"] -30
+    # ---- annotation bubbles WITHOUT arrows ----
+    slow_label_x = slow_row["Year"] - 30
     slow_label_y = slow_row["GDP_pc"] + 1800
 
     fast_label_x = fast_row["Year"] - 70
@@ -205,10 +206,10 @@ def plot_global_trends(df: pd.DataFrame) -> None:
     ax.annotate(
         f"Slow growth in 19th century\n({int(slow_row['Year'])}: "
         f"${slow_row['GDP_pc']:.0f})",
-        xy=(slow_row["Year"], slow_row["GDP_pc"]),     # REQUIRED
-        xytext=(slow_label_x, slow_label_y),           # bubble position
+        xy=(slow_row["Year"], slow_row["GDP_pc"]),
+        xytext=(slow_label_x, slow_label_y),
         textcoords="data",
-        arrowprops=None,                               # No arrow
+        arrowprops=None,
         fontsize=9,
         bbox=dict(boxstyle="round,pad=0.3", fc="white", alpha=0.9),
     )
@@ -216,15 +217,30 @@ def plot_global_trends(df: pd.DataFrame) -> None:
     ax.annotate(
         f"Faster growth in 20th century\n({int(fast_row['Year'])}: "
         f"${fast_row['GDP_pc']:.0f})",
-        xy=(fast_row["Year"], fast_row["GDP_pc"]),     # REQUIRED
+        xy=(fast_row["Year"], fast_row["GDP_pc"]),
         xytext=(fast_label_x, fast_label_y),
         textcoords="data",
-        arrowprops=None,                               # No arrow
+        arrowprops=None,
         fontsize=9,
         bbox=dict(boxstyle="round,pad=0.3", fc="white", alpha=0.9),
     )
 
-    # ---- circle major high-gradient segments (no arrows) ----
+    # ---- circle major gradient segments (three ellipses, no arrows) ----
+    # 0) Gradual 19th-century incline (~1830–1890)
+    center0_year = 1870
+    center0_row = grouped.iloc[(grouped["Year"] - center0_year).abs().argmin()]
+    center0_val = center0_row["GDP_pc"]
+
+    ell0 = Ellipse(
+        (center0_year, center0_val),
+        width=60,                         # years spanned (horizontal)
+        height=(y1 - y0) * 0.30,          # vertical span
+        edgecolor="red",
+        facecolor="none",
+        linewidth=1.5,
+    )
+    ax.add_patch(ell0)
+
     # 1) Post-WWII take-off (~1960s–1970s)
     center1_year = 1965
     center1_row = grouped.iloc[(grouped["Year"] - center1_year).abs().argmin()]
@@ -232,15 +248,15 @@ def plot_global_trends(df: pd.DataFrame) -> None:
 
     ell1 = Ellipse(
         (center1_year, center1_val),
-        width=30,                          # years spanned
-        height=(y1 - y0) * 0.40,           # vertical span
+        width=30,
+        height=(y1 - y0) * 0.40,
         edgecolor="red",
         facecolor="none",
         linewidth=1.5,
     )
     ax.add_patch(ell1)
 
-    # 2) Late-20th / early-21st century boom (~1990s–2010)
+    # 2) Late-20th / early-21st-century boom (~1990s–2010)
     center2_year = 1995
     center2_row = grouped.iloc[(grouped["Year"] - center2_year).abs().argmin()]
     center2_val = center2_row["GDP_pc"]
@@ -265,8 +281,11 @@ def plot_scatter_latest_year(df: pd.DataFrame) -> None:
     Scatter: GDP per capita vs Life Expectancy (latest year),
     with a best-fit curve based on LE_0 ~ log(GDP_pc),
     and a log(GDP) version with a straight best-fit line.
-    Includes annotations that match the report text.
+
+    Annotations use explicit coordinates (xy, xytext) that
+    you can manually edit.
     """
+
     latest_year = df["Year"].max()
     snap = df[df["Year"] == latest_year].dropna(subset=["GDP_pc", "LE_0"]).copy()
     snap = snap[snap["GDP_pc"] > 0]  # log requires positive values
@@ -278,51 +297,55 @@ def plot_scatter_latest_year(df: pd.DataFrame) -> None:
     # Fit in log space: LE_0 = intercept + slope * log(GDP)
     slope, intercept = np.polyfit(log_x, y_le, 1)
 
-    # ----------------------------------------------------
-    # RAW GDP axis with curved log-based best-fit line
-    # ----------------------------------------------------
+    # ====================================================
+    # 1) RAW GDP axis with curved log-based best-fit line
+    # ====================================================
     plt.figure(figsize=(8, 6))
     plt.scatter(x_gdp, y_le, alpha=0.5, label="Country (latest year)")
 
     # Best-fit curve implied by LE_0 ~ log(GDP_pc)
     x_line = np.linspace(x_gdp.min(), x_gdp.max(), 200)
     y_line = intercept + slope * np.log(x_line)
-    plt.plot(x_line, y_line, linewidth=2,
-             label="Best fit: LE₀ ~ log(GDP per capita)", color="red")
+    plt.plot(
+        x_line,
+        y_line,
+        linewidth=2,
+        label="Best fit: LE₀ ~ log(GDP per capita)",
+        color="red",
+    )
 
-    # --- Annotations reflecting your paragraph ---
+    # ---------- explicit annotation positions (edit these) ----------
 
-    # Low-income, low-LE cluster (bottom-left)
-    low_x = np.percentile(x_gdp, 10)
-    low_y = np.percentile(y_le, 10)
+    # Low income, low life expectancy
     plt.annotate(
         "Low income,\nlow life expectancy",
-        xy=(low_x, low_y),
-        xytext=(low_x * 2, low_y - 5),
+        xy=(1000, 60),          # arrow tip on curve
+        xytext=(3500,55),      # bubble position
         arrowprops=dict(arrowstyle="->", linewidth=1),
         fontsize=9,
+        bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="grey", alpha=0.85),
     )
 
-    # High-income, high-LE cluster (top-right)
-    high_x = np.percentile(x_gdp, 90)
-    high_y = np.percentile(y_le, 90)
+    # High income, high life expectancy
     plt.annotate(
         "High income,\nhigh life expectancy",
-        xy=(high_x, high_y),
-        xytext=(high_x * 0.6, high_y + 3),
+        xy=(22000, 75),         # arrow tip near upper-right curve
+        xytext=(19850, 65),     # bubble position
         arrowprops=dict(arrowstyle="->", linewidth=1),
         fontsize=9,
+        bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="grey", alpha=0.85),
+        ha="center",
     )
 
-    # Curvature / diminishing returns at high income
-    # Pick a point near the top of the curve
-    idx_high_curve = np.argmax(x_line)
+    # Diminishing returns at high income
     plt.annotate(
         "Large GDP increases\n→ smaller gains in LE₀",
-        xy=(x_line[idx_high_curve], y_line[idx_high_curve]),
-        xytext=(x_line[idx_high_curve] * 0.6, y_line[idx_high_curve] - 8),
+        xy=(24000, 75),         # point on upper part of curve
+        xytext=(22000, 55),     # bubble position
         arrowprops=dict(arrowstyle="->", linewidth=1),
         fontsize=9,
+        bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="grey", alpha=0.85),
+        ha="center",
     )
 
     plt.xlabel("GDP per Capita (USD)")
@@ -333,47 +356,55 @@ def plot_scatter_latest_year(df: pd.DataFrame) -> None:
     plt.savefig(OUTPUT_DIR / f"scatter_GDPpc_LE0_{latest_year}.png", dpi=300)
     plt.close()
 
-    # ----------------------------------------------------
-    #LOG(GDP) axis with straight best-fit line
-    # ----------------------------------------------------
+    # ====================================================
+    # 2) log(GDP) axis with straight best-fit line
+    # ====================================================
     plt.figure(figsize=(8, 6))
     plt.scatter(log_x, y_le, alpha=0.5, label="Country (latest year)")
 
     log_x_line = np.linspace(log_x.min(), log_x.max(), 200)
     y_line_log = intercept + slope * log_x_line
-    plt.plot(log_x_line, y_line_log, linewidth=2,
-             label="Best-fit line", color = "red")
+    plt.plot(
+        log_x_line,
+        y_line_log,
+        linewidth=2,
+        label="Best-fit line",
+        color="red",
+    )
 
-    # annnotations for relationship is closer to linear
-    mid_log = np.median(log_x)
-    mid_y = intercept + slope * mid_log
+    # Low log(GDP)
+    plt.annotate(
+        "Low log(GDP):\nsmall income increases\nlinked to large gains in LE₀",
+        xy=(6.5, 58),           # arrow tip on left end of line
+        xytext=(7.2, 52),       # bubble position
+        arrowprops=dict(arrowstyle="->", linewidth=1),
+        fontsize=9,
+        bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="grey", alpha=0.85),
+        ha="center",
+    )
+
+    # Almost linear pattern in log space
     plt.annotate(
         "Almost linear pattern in log space:\n"
         "proportional differences in GDP\n"
         "are more informative than absolute levels",
-        xy=(mid_log, mid_y),
-        xytext=(mid_log, mid_y + 6),
+        xy=(8.9, 71),           # arrow tip on mid part of line
+        xytext=(8.3, 79),       # bubble above
         arrowprops=dict(arrowstyle="->", linewidth=1),
         fontsize=9,
+        bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="grey", alpha=0.85),
         ha="center",
     )
 
-# highlight low- vs high-log GDP ends
+    # High log(GDP)
     plt.annotate(
-        "Low log(GDP):\nsmall increases in income\n"
-        "associated with large gains in LE₀",
-        xy=(log_x.min(), intercept + slope * log_x.min()),
-        xytext=(log_x.min() + 0.3, intercept + slope * log_x.min() - 8),
+        "High log(GDP):\nextra income yields\nsmaller extra years of life",
+        xy=(10.1, 77),          # arrow tip on right end of line
+        xytext=(9.7, 79),       # bubble position
         arrowprops=dict(arrowstyle="->", linewidth=1),
         fontsize=9,
-    )
-    plt.annotate(
-        "High log(GDP):\nextra income yields\n"
-        "smaller extra years of life",
-        xy=(log_x.max(), intercept + slope * log_x.max()),
-        xytext=(log_x.max() - 1.0, intercept + slope * log_x.max() + 4),
-        arrowprops=dict(arrowstyle="->", linewidth=1),
-        fontsize=9,
+        bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="grey", alpha=0.85),
+        ha="center",
     )
 
     plt.xlabel("log(GDP per Capita)")
@@ -383,6 +414,8 @@ def plot_scatter_latest_year(df: pd.DataFrame) -> None:
     plt.tight_layout()
     plt.savefig(OUTPUT_DIR / f"scatter_logGDPpc_LE0_{latest_year}.png", dpi=300)
     plt.close()
+
+
     
     
 def plot_income_group_boxplot(df: pd.DataFrame) -> None:

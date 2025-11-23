@@ -33,7 +33,7 @@ def summary_stats(df):
 def correlation_matrix(df):
     plt.figure(figsize=(12, 8))
     sns.heatmap(df.corr(numeric_only=True), annot=False, cmap="coolwarm")
-    plt.title("Correlation Matrix")
+    plt.title("Correlation Matrix", fontsize=14)
     plt.savefig(OUTPUT_DIR / "correlation_matrix.png")
     plt.close()
 
@@ -41,24 +41,26 @@ def correlation_matrix(df):
 def distplots(df):
     plt.figure(figsize=(10, 5))
     sns.histplot(df["GDP_pc"], bins=50)
-    plt.title("GDP per Capita Distribution")
+    plt.title("GDP per Capita Distribution", fontsize=14)
     plt.savefig(OUTPUT_DIR / "dist_gdp.png")
     plt.close()
 
     plt.figure(figsize=(10, 5))
     sns.histplot(df["LE_0"], bins=50)
-    plt.title("Life Expectancy at Birth Distribution")
+    plt.title("Life Expectancy at Birth Distribution", fontsize=14)
     plt.savefig(OUTPUT_DIR / "dist_le0.png")
     plt.close()
+
 
 def scatterplots(df):
     plt.figure(figsize=(8, 6))
     sns.scatterplot(data=df, x="GDP_pc", y="LE_0", alpha=0.4)
-    plt.title("GDP per Capita vs Life Expectancy at Birth")
+    plt.title("GDP per Capita vs Life Expectancy at Birth", fontsize=14)
     plt.xlabel("GDP per Capita (USD)")
     plt.ylabel("Life Expectancy at Birth")
     plt.tight_layout()
     plt.show()
+
 
 def timeseries_examples(df):
     sample_countries = ["United States", "China", "India", "Germany"]
@@ -68,13 +70,13 @@ def timeseries_examples(df):
 
         plt.figure(figsize=(10, 5))
         plt.plot(subset["Year"], subset["GDP_pc"], label="GDP_pc")
-        plt.title(f"GDP per Capita Over Time — {country}")
+        plt.title(f"GDP per Capita Over Time — {country}", fontsize=14)
         plt.savefig(OUTPUT_DIR / f"gdp_ts_{country}.png")
         plt.close()
 
         plt.figure(figsize=(10, 5))
         plt.plot(subset["Year"], subset["LE_0"], label="LE_0")
-        plt.title(f"Life Expectancy at Birth Over Time — {country}")
+        plt.title(f"Life Expectancy at Birth Over Time — {country}", fontsize=14)
         plt.savefig(OUTPUT_DIR / f"le_ts_{country}.png")
         plt.close()
 
